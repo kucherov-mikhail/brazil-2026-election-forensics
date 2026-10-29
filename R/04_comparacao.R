@@ -5,9 +5,13 @@
 # рос бы почти один к одному с приростом явки: точки ложились бы вдоль y = x,
 # а наклон регрессии был бы близок к 1. При естественном росте явки новые
 # избиратели делятся между кандидатами, и наклоны заметно меньше 1.
+#
+# Язык подписей — переменная LANG ("ru" по умолчанию, "en", "pt"), см. R/textos.R.
+# Результаты пишутся в output/<язык>/comparacao/.
 
 library(data.table)
 library(ggplot2)
+source("R/textos.R")
 
 MIN_APTOS <- 50
 
@@ -53,9 +57,9 @@ theme_set(
     )
 )
 
-fonte  <- "Источник: TSE, votacao_secao / detalhe_votacao_secao 2026, 1-й и 2-й туры"
-pp     <- scales::label_number(accuracy = 1, scale = 100, suffix = " п.п.", style_positive = "plus")
-out_dir <- "output/comparacao"
+fonte  <- tx("fonte_comp")
+pp     <- scales::label_number(accuracy = 1, scale = 100, suffix = tx("pp_sufixo"), style_positive = "plus")
+out_dir <- file.path("output", LANG, "comparacao")
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 salvar <- function(g, nome, w = 10, h = 6) {
   ggsave(file.path(out_dir, nome), g, width = w, height = h, dpi = 150, bg = "#fcfcfb")
@@ -67,11 +71,10 @@ salvar <- function(g, nome, w = 10, h = 6) {
 g1 <- ggplot(p, aes(d_turnout)) +
   geom_histogram(binwidth = 0.01, center = 0, fill = "#2a78d6", colour = "#fcfcfb", linewidth = 0.1) +
   geom_vline(xintercept = 0, colour = "#52514e", linewidth = 0.3) +
-  facet_wrap(~regiao, scales = "free_y") +
+  facet_wrap(~regiao, scales = "free_y", labeller = as_labeller(rotulo_regiao)) +
   scale_x_continuous(labels = pp, limits = c(-0.25, 0.25)) +
-  labs(title = "Изменение явки между 1-м и 2-м турами на тех же участках",
-       subtitle = "Число участков в корзине шириной 1 п.п.",
-       x = "Явка во 2-м туре минус явка в 1-м", y = "Участков", caption = fonte)
+  labs(title = tx("g1_titulo"), subtitle = tx("sub_bin_1pp"),
+       x = tx("g1_x"), y = tx("secoes"), caption = fonte)
 salvar(g1, "01_delta_turnout_por_regiao.png", w = 12, h = 7)
 
 # --- 2. прирост явки x прирост голосов кандидата -----------------------------
@@ -84,14 +87,13 @@ g2 <- ggplot(dd, aes(d_turnout, d_cand)) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "#e34948", linewidth = 0.4) +
   geom_smooth(method = "lm", formula = y ~ x, colour = "#0b0b0b", linewidth = 0.5, se = FALSE) +
   scale_fill_gradient(low = "#cde2fb", high = "#0d366b", trans = "log10",
-                      name = "Участков", labels = scales::label_number()) +
+                      name = tx("secoes"), labels = scales::label_number()) +
   facet_wrap(~cand) +
   coord_cartesian(xlim = c(-0.2, 0.2), ylim = c(-0.2, 0.4)) +
   scale_x_continuous(labels = pp) +
   scale_y_continuous(labels = pp) +
-  labs(title = "Прирост явки и прирост голосов кандидата на участке",
-       subtitle = "Обе величины в долях от списка избирателей. Красная пунктирная линия y = x — так выглядел бы вброс в пользу кандидата; чёрная — регрессия",
-       x = "Изменение явки", y = "Изменение голосов кандидата", caption = fonte) +
+  labs(title = tx("g2_titulo"), subtitle = tx("g2_sub"),
+       x = tx("g2_x"), y = tx("g2_y"), caption = fonte) +
   theme(legend.position = "right", legend.title = element_text(colour = "#52514e"))
 salvar(g2, "02_delta_turnout_vs_delta_votos.png", w = 12, h = 6)
 

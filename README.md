@@ -14,11 +14,16 @@
 renv::restore()
 source("R/01_download.R")  # ~480 МБ архивов в data/raw/ (перекачивает, если файл на сервере изменился)
 source("R/02_prepare.R")   # data/processed/secoes_t1.rds, secoes_t2.rds
-for (TURNO in 1:2) source("R/03_shpilkin.R")  # output/t1/, output/t2/
-source("R/04_comparacao.R")  # output/comparacao/
+for (LANG in c("ru", "en", "pt")) {             # язык подписей, тексты в R/textos.R
+  for (TURNO in 1:2) source("R/03_shpilkin.R")  # output/<язык>/t1/, output/<язык>/t2/
+  source("R/04_comparacao.R")                   # output/<язык>/comparacao/
+}
 ```
 
-## Что в `output/t<тур>/`
+Без `LANG` скрипты строят графики на русском. Монте-Карло-тест (6) занимает
+несколько минут на тур и повторяется для каждого языка.
+
+## Что в `output/<язык>/t<тур>/`
 
 | Файл | Содержание |
 |---|---|
@@ -33,7 +38,7 @@ source("R/04_comparacao.R")  # output/comparacao/
 Во 2-м туре доля Flávio = 1 − доля Lula, поэтому в (5) и (6) показана только доля Lula,
 а третья линия в (1) и (3) — пустые и недействительные бюллетени.
 
-## Что в `output/comparacao/`
+## Что в `output/<язык>/comparacao/`
 
 | Файл | Содержание |
 |---|---|

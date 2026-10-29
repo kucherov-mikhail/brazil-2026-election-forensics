@@ -1,7 +1,8 @@
 # Анализ одного тура президентских выборов по методу Шпилькина.
 # Тур задаётся переменной TURNO до вызова source() (по умолчанию 1):
 #   TURNO <- 2; source("R/03_shpilkin.R")
-# Результаты пишутся в output/t<тур>/.
+# Язык подписей — переменная LANG ("ru" по умолчанию, "en", "pt"), см. R/textos.R.
+# Результаты пишутся в output/<язык>/t<тур>/.
 #
 # 1. Распределение голосов кандидатов по явке (классический график Шпилькина).
 # 2. Плотность "явка x доля кандидата" по участкам.
@@ -20,6 +21,7 @@ library(ggplot2)
 MIN_APTOS <- 50   # маленькие участки дают шум и арифметические пики
 N_SIM     <- 200  # число симуляций в тесте целых процентов
 if (!exists("TURNO")) TURNO <- 1
+source("R/textos.R")
 set.seed(2026)
 
 secoes <- readRDS(sprintf("data/processed/secoes_t%d.rds", TURNO))
@@ -30,10 +32,10 @@ message("Тур ", TURNO, ". Участков в анализе: ", nrow(d), " �
 # и вместо них показываются пустые и недействительные бюллетени
 if (TURNO == 1) {
   d[, `:=`(flavio = v_22, lula = v_13, outros = validos - v_22 - v_13)]
-  rotulo_outros <- "Остальные кандидаты"
+  rotulo_outros <- tx("outros_t1")
 } else {
   d[, `:=`(flavio = v_22, lula = v_13, outros = v_95 + v_96)]
-  rotulo_outros <- "Пустые и недействительные"
+  rotulo_outros <- tx("outros_t2")
 }
 
 cand_labels <- c(flavio = "Flávio Bolsonaro (22)", lula = "Lula (13)", outros = rotulo_outros)
@@ -55,10 +57,10 @@ theme_shp <- theme_minimal(base_size = 11) +
   )
 theme_set(theme_shp)
 
-fonte <- sprintf("Источник: TSE, votacao_secao / detalhe_votacao_secao 2026, %d-й тур", TURNO)
+fonte <- tx("fonte_turno", TURNO)
 pct   <- scales::label_percent(accuracy = 1)
 
-out_dir <- file.path("output", paste0("t", TURNO))
+out_dir <- file.path("output", LANG, paste0("t", TURNO))
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 salvar <- function(p, nome, w = 10, h = 6) {
   ggsave(file.path(out_dir, nome), p, width = w, height = h, dpi = 150, bg = "#fcfcfb")
@@ -111,9 +113,8 @@ p1 <- ggplot(v1, aes(bin_t, votos, colour = cand)) +
   scale_colour_manual(values = cand_cores) +
   scale_x_continuous(labels = pct, limits = c(0.4, 1)) +
   scale_y_continuous(labels = scales::label_number(scale_cut = scales::cut_short_scale())) +
-  labs(title = "Голоса за кандидатов в зависимости от явки на участке",
-       subtitle = "Сумма голосов на участках с явкой в корзине шириной 0.5 п.п.",
-       x = "Явка на участке", y = "Голосов", caption = fonte)
+  labs(title = tx("p1_titulo"), subtitle = tx("p1_sub"),
+       x = tx("x_turnout"), y = tx("y_votos"), caption = fonte)
 salvar(p1, "01_shpilkin_votos_por_turnout.png")
 
 # --- 2. явка x доля кандидата ------------------------------------------------
@@ -124,13 +125,12 @@ share[, cand := factor(cand_labels[as.character(cand)], levels = cand_labels[1:2
 p2 <- ggplot(share, aes(turnout, share)) +
   geom_bin2d(binwidth = c(0.005, 0.01)) +
   scale_fill_gradient(low = "#cde2fb", high = "#0d366b", trans = "log10",
-                      name = "Участков", labels = scales::label_number()) +
+                      name = tx("secoes"), labels = scales::label_number()) +
   facet_wrap(~cand) +
   scale_x_continuous(labels = pct, limits = c(0.4, 1)) +
   scale_y_continuous(labels = pct) +
-  labs(title = "Явка и доля кандидата по участкам",
-       subtitle = "Доля от действительных голосов; цвет — число участков в ячейке (лог. шкала)",
-       x = "Явка на участке", y = "Доля кандидата", caption = fonte) +
+  labs(title = tx("p2_titulo"), subtitle = tx("p2_sub"),
+       x = tx("x_turnout"), y = tx("y_share"), caption = fonte) +
   theme(legend.position = "right", legend.title = element_text(colour = "#52514e"))
 salvar(p2, "02_turnout_vs_share.png", w = 12, h = 6)
 
@@ -139,13 +139,12 @@ v3 <- votos_por_turnout(d, by = "regiao", bin = 0.01)
 
 p3 <- ggplot(v3, aes(bin_t, votos, colour = cand)) +
   geom_line(linewidth = 0.6) +
-  facet_wrap(~regiao, scales = "free_y") +
+  facet_wrap(~regiao, scales = "free_y", labeller = as_labeller(rotulo_regiao)) +
   scale_colour_manual(values = cand_cores) +
   scale_x_continuous(labels = pct, limits = c(0.4, 1)) +
   scale_y_continuous(labels = scales::label_number(scale_cut = scales::cut_short_scale())) +
-  labs(title = "Голоса за кандидатов в зависимости от явки, по регионам",
-       subtitle = "Корзины явки шириной 1 п.п.; шкала Y своя в каждой панели",
-       x = "Явка на участке", y = "Голосов", caption = fonte)
+  labs(title = tx("p3_titulo"), subtitle = tx("p3_sub"),
+       x = tx("x_turnout"), y = tx("y_votos"), caption = fonte)
 salvar(p3, "03_shpilkin_por_regiao.png", w = 12, h = 7)
 
 # --- 4. распределение явки по штатам -----------------------------------------
@@ -153,18 +152,17 @@ p4 <- ggplot(d, aes(turnout)) +
   geom_histogram(binwidth = 0.01, center = 0, fill = "#2a78d6", colour = "#fcfcfb", linewidth = 0.1) +
   facet_wrap(~SG_UF, scales = "free_y", ncol = 7) +
   scale_x_continuous(labels = pct, limits = c(0.4, 1), breaks = c(0.5, 0.75, 1)) +
-  labs(title = "Распределение явки по участкам, по штатам",
-       subtitle = "Число участков в корзине шириной 1 п.п.",
-       x = "Явка на участке", y = "Участков", caption = fonte) +
+  labs(title = tx("p4_titulo"), subtitle = tx("sub_bin_1pp"),
+       x = tx("x_turnout"), y = tx("secoes"), caption = fonte) +
   theme(axis.text.y = element_blank())
 salvar(p4, "04_turnout_por_uf.png", w = 14, h = 8)
 
 # --- 5. тонкие гистограммы: пики на круглых процентах ------------------------
 # во 2-м туре доля Flávio = 1 - доля Lula, поэтому она не даёт новой информации
 fino <- rbind(
-  d[, .(medida = "Явка", valor = turnout)],
-  if (TURNO == 1) d[, .(medida = "Доля Flávio Bolsonaro", valor = flavio / validos)],
-  d[, .(medida = "Доля Lula", valor = lula / validos)]
+  d[, .(medida = tx("medida_turn"), valor = turnout)],
+  if (TURNO == 1) d[, .(medida = tx("medida_share", "Flávio Bolsonaro"), valor = flavio / validos)],
+  d[, .(medida = tx("medida_share", "Lula"), valor = lula / validos)]
 )
 fino[, medida := factor(medida, levels = unique(medida))]
 # округление до 0.1 п.п.: каждая корзина центрирована на x.x%
@@ -175,9 +173,8 @@ p5 <- ggplot(fino[bin >= 0.2 & bin <= 0.95], aes(bin, N)) +
   geom_col(fill = "#2a78d6", width = 0.0008) +
   facet_wrap(~medida, ncol = 1, scales = "free_y") +
   scale_x_continuous(labels = pct, breaks = seq(0.2, 0.95, 0.05)) +
-  labs(title = "Тонкие гистограммы: есть ли пики на круглых процентах?",
-       subtitle = "Число участков в корзине 0.1 п.п. Пики на простых дробях (50%, 66.7%, 75%) частично арифметические — см. тест ниже",
-       x = NULL, y = "Участков", caption = fonte)
+  labs(title = tx("p5_titulo"), subtitle = tx("p5_sub"),
+       x = NULL, y = tx("secoes"), caption = fonte)
 salvar(p5, "05_histogramas_finas.png", w = 14, h = 9)
 
 # --- 6. тест на избыток целых процентов --------------------------------------
@@ -193,7 +190,7 @@ teste_inteiros <- function(k, n, medida) {
     obs <- sum(eh_redondo(k, n, step))
     sim <- vapply(seq_len(N_SIM), function(i) sum(eh_redondo(rbinom(length(n), n, p), n, step)), numeric(1))
     data.table(
-      medida, criterio = if (step == 1) "целый %" else "кратно 5%",
+      medida, criterio = if (step == 1) tx("crit_inteiro") else tx("crit_5"),
       observado = obs, esperado = round(mean(sim)), sd_sim = round(sd(sim), 1),
       excesso_pct = round(100 * (obs / mean(sim) - 1), 1),
       z = round((obs - mean(sim)) / sd(sim), 2),
@@ -203,9 +200,9 @@ teste_inteiros <- function(k, n, medida) {
 }
 
 teste <- rbind(
-  d[, teste_inteiros(QT_COMPARECIMENTO, QT_APTOS, "Явка")],
-  if (TURNO == 1) d[, teste_inteiros(flavio, validos, "Доля Flávio Bolsonaro")],
-  d[, teste_inteiros(lula, validos, "Доля Lula")]
+  d[, teste_inteiros(QT_COMPARECIMENTO, QT_APTOS, tx("medida_turn"))],
+  if (TURNO == 1) d[, teste_inteiros(flavio, validos, tx("medida_share", "Flávio Bolsonaro"))],
+  d[, teste_inteiros(lula, validos, tx("medida_share", "Lula"))]
 )
 fwrite(teste, file.path(out_dir, "06_teste_inteiros.csv"))
 print(teste)
